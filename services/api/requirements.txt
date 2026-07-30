@@ -12,6 +12,21 @@ boto3>=1.35.0
 Pillow>=11.0.0
 PyPDF2>=3.0.0
 
+# Local LoRA/QLoRA fine-tuning — the CPU-portable path (real transformers + PEFT
+# LoRA fine-tune of a tiny causal LM). All pinned to avoid the unpinned-ML
+# clean-install false-green. The GPU-only stack (unsloth / bitsandbytes /
+# xformers) is kept OUT of this base lock and lives in requirements-gpu.txt —
+# it does not install on macOS arm64 and would break clean install / verify.
+# torch/transformers/peft are lazily imported inside repo/trainer.py, so the
+# app, tests, and OpenAPI export never load them.
+torch>=2.2.0
+transformers>=4.44.0
+peft>=0.13.0
+datasets>=3.0.0
+accelerate>=1.0.0
+safetensors>=0.4.0
+numpy>=1.26.0
+
 # Dev / quality
 ruff>=0.8.0
 pytest>=8.0.0

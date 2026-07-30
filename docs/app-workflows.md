@@ -1,53 +1,88 @@
-<!-- last_verified: 2026-07-28 -->
+<!-- last_verified: 2026-07-30 -->
 # App Workflows
 
-User journeys inside the application.
+User journeys inside the application. The core loop is: **ingest a dataset →
+configure a run → start training → watch checkpoints land on B2 → browse/compare
+runs → presigned-download a checkpoint.**
 
-## Upload Files
+## Ingest a Dataset
 
-- User navigates to `/upload`
-- Drops or selects files in the dropzone
-- Client validates file size (max 100MB) and type
-- A determinate progress bar tracks the bytes leaving the browser; once they are all sent the row switches to "Storing in B2..." with an *indeterminate* sweeping bar for the server-side phase (put_object + checksums + metadata). That phase has no percentage to report — measured at 25s on a 54MB file — and a bar parked at a full 100% read as finished-but-stuck
-- On success: toast notification, green checkmark, and a "View in Files" link through to the browser
-- On failure: red status icon with error message
-- User can clear completed uploads
-- The queue lives in an app-wide provider: navigating to another page keeps the upload running, shows an "Uploading N files" indicator in the header, and keeps the duplicate-upload guard armed
-- Reloading or closing mid-upload asks for confirmation first; if the upload dies anyway, the next load says which file didn't finish
-- See: [File Upload](features/file-upload.md)
+- User navigates to `/upload` ("Ingest a dataset")
+- Drops or selects a JSONL/CSV training file (the picker is scoped to those
+  formats); client validates size (max 100MB) and type
+- A determinate bar tracks the bytes leaving the browser, then the row switches
+  to "Storing in B2..." with an indeterminate sweep for the server-side phase
+- On success the file lands under `datasets/` and becomes selectable in the
+  run-create form; a "View in Files" link goes to the browser
+- A tiny sample dataset is seeded automatically on first run, so this step is
+  optional for a first experiment
+- See: [Dataset Ingest](features/file-upload.md)
 
-## Browse and Manage Files
+## Configure and Start a Run (primary journey)
 
-- User navigates to `/files`
-- Page loads the 100 most recent objects from the API (sorted most recent first). While it loads, the page says so on screen and escalates the wording if the wait runs long — a full bucket listing measured 2.8s-21s cold
-- If that limit was hit, a notice states how many objects the bucket actually holds — the page never claims to show everything
-- Files displayed in tree view with folders and type-specific icons
-- Folders auto-expand on load until the *majority* of the listed files are reachable without clicking, so the page's own "click a file" instruction is always actionable. Stopping at the first visible file was not enough: one stray top-level object left the other 99 sealed in collapsed folders while the page claimed to show 100
-- Clicking a file row opens its preview; the per-row actions menu (preview / download / delete) is always visible, on every viewport
-- Arriving at `/files?preview=<key>` expands that file's folders and opens its preview directly. This is how the ⌘K palette and the dashboard's recent-uploads rows hand off a *specific* file; the param is consumed on arrival so it doesn't re-fire later
-- **Preview**: opens dialog with image/PDF preview + metadata panel, and the file's Download / Delete actions — the advertised "click a file" path offers everything the row menu does. The loading state holds until the media paints; a failure offers "Open in a new tab". The preview URL is signed with `Content-Disposition: inline` so PDFs render in place
-- **Download**: shows a pending state on the row plus a toast while the presigned URL is fetched, then starts the download via an anchor click (which, unlike a popup, still works if the click's user activation expired during a slow presign). Failures are reported; the click can never silently do nothing
-- **Delete**: the confirmation dialog stays open showing "Deleting..." until the request settles, then the row disappears with the toast (optimistic cache update) and the list reconciles with the server. The dialog is held deliberately — Radix closes on action click by default, which dismissed the only pending state and left the row looking untouched while the delete was still in flight
-- Empty bucket shows "No files found" with upload prompt
+- User navigates to `/runs` → **New run**
+- Fills the create form: name, notes, tags, and the training config — **base
+  model** (Select), **dataset** (Select from `datasets/`), **method**
+  (LoRA/QLoRA RadioGroup), **epochs** (1–5), **learning rate** (Select),
+  **LoRA rank** (Select). Safe defaults are pre-filled (Tiny CPU-demo model,
+  LoRA, 1 epoch, 2e-4, rank 16, seeded dataset); the form warns that gated models
+  need `HF_TOKEN` + a CUDA GPU
+- Submitting creates the run with status `queued`; the config is frozen to
+  `runs/<id>/config.json` and the app routes to the run detail page
+- On the detail page the user presses **Start training** — the run flips to
+  `running` and training launches in the background
+- See: [Training Runs](features/training-runs.md)
+
+## Watch Training & Version Checkpoints
+
+- The detail page polls while the run is `running`: a progress bar + message +
+  latest loss update in place, and the **loss curve** fills in per epoch
+- Each completed epoch uploads a checkpoint to
+  `runs/<id>/checkpoints/epoch-<n>/`, which appears in the scoped artifact
+  explorer as it lands
+- On completion, the final adapter (`adapter/`) and `metrics.json` are archived;
+  status becomes `completed` with the final loss shown
+- A failed run shows its error message and can be re-run
+- See: [Checkpoint Versioning](features/checkpoint-versioning.md)
+
+## Browse, Compare & Download
+
+- `/runs` lists every run with status, base model, method, epochs, final loss,
+  artifact count, size, and created date — compare experiments at a glance
+- The run detail's **scoped artifact explorer** lists only `runs/<id>/…` and each
+  artifact has a one-click **presigned download** (config, per-epoch checkpoints,
+  final adapter, metrics)
+- **Re-run** retrains from the same frozen config; **Edit** changes metadata
+  (name/notes/tags) via a dialog; **Delete** removes the run with a confirm and a
+  scoped `runs/<id>/` sweep
+- See: [Training Runs](features/training-runs.md)
+
+## Browse the Whole Bucket
+
+- User navigates to `/files` — the kept whole-bucket explorer (everything on B2,
+  including `datasets/` and `runs/`)
+- Tree view with preview, download, and delete; the 100 most recent objects load
+  first with an on-screen loading notice for the cold scan
 - See: [File Browser](features/file-browser.md)
 
 ## View Dashboard
 
 - User navigates to `/` (home)
-- Three parallel API calls load: stats, recent files, upload activity — all served from one shared bucket listing that the API warms at startup
-- While stats load, the page states it in words above the cards rather than showing silent skeletons
-- Stats cards show: total files, storage used, uploads today, total downloads
-- Upload chart shows last 7 days of upload activity as bar chart
-- Recent uploads table shows last 10 files with filename, size, type, date. Each filename links to that file's preview on `/files` — `/files` teaches "click a file to preview it", so the same gesture here has to answer rather than being inert text
-- Empty state: "No files uploaded yet" messages
+- Stat cards show total runs, completed runs, artifacts on B2, and storage on B2
+- The **artifact-growth chart** plots cumulative artifact bytes over time — the
+  accumulating-artifact curve that grows with every experiment
+- The recent-runs table links each run to its detail; both queries poll while a
+  run is active
+- Empty state until the first run exists
 - See: [Dashboard](features/dashboard.md)
 
 ## Change Preferences
 
 - User navigates to `/settings`
-- A banner at the top states that the page is mostly a demonstration: only Theme is wired up for real, the rest showcases what a settings page can look like when you adapt the kit
-- **Theme** (real): editing it and saving applies it immediately and persists it (`next-themes`), and the header's theme toggle drives the same state
-- **Profile and preference fields** (demo): Display name, Bio, Default file view (Tree/List/Grid), Email me on every upload, Warn me when approaching quota + threshold. Each is labelled "Demo field", persists to `localStorage` only, and drives no behaviour — there is no account system, mailer, quota banner, activity log, or List/Grid view behind them yet
-- Saving reports honestly: a success toast that separates the real theme change from the locally-stored demo values, or a warning toast if the browser blocked storage (theme still changes). It never claims a save that did not happen — the original page toasted "Settings saved" for fields that changed nothing
-- Danger Zone actions are a demo — no real delete runs
+- A banner states the page is mostly a demonstration: only Theme is wired up for
+  real; the rest showcases what a settings page can look like when you adapt the
+  kit. It is the in-repo form-UX exemplar the run form mirrors
+- **Theme** (real): editing and saving applies + persists it (`next-themes`)
+- Profile/preference fields are demo-only (`localStorage`), and the Danger Zone
+  runs no real delete
 - See: [Settings](features/settings.md)

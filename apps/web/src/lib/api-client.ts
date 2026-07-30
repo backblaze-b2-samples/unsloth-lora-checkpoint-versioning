@@ -1,20 +1,36 @@
 import type {
+  CreateRunRequest,
   DailyUploadCount,
+  DeleteResponse,
   FileMetadata,
   FileMetadataDetail,
   FileUploadResponse,
+  RunDetail,
+  RunOptions,
+  RunStats,
+  RunSummary,
+  UpdateRunRequest,
   UploadStats,
-} from "@vibe-coding-starter-kit/shared";
+} from "@unsloth-lora-checkpoint-versioning/shared";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type ApiClientRoute = {
-  method: "delete" | "get" | "post";
+  method: "delete" | "get" | "patch" | "post";
   path: string;
 };
 
 export const API_CLIENT_ROUTES = {
   health: { method: "get", path: "/health" },
+  runOptions: { method: "get", path: "/runs/options" },
+  runStats: { method: "get", path: "/runs/stats" },
+  runs: { method: "get", path: "/runs" },
+  createRun: { method: "post", path: "/runs" },
+  runDetail: { method: "get", path: "/runs/{run_id}" },
+  startRun: { method: "post", path: "/runs/{run_id}/start" },
+  updateRun: { method: "patch", path: "/runs/{run_id}" },
+  deleteRun: { method: "delete", path: "/runs/{run_id}" },
+  runArtifactDownload: { method: "get", path: "/runs/{run_id}/artifacts/download" },
   files: { method: "get", path: "/files" },
   fileStats: { method: "get", path: "/files/stats" },
   uploadActivity: { method: "get", path: "/files/stats/activity" },
@@ -163,6 +179,66 @@ export async function getHealth() {
   return apiFetch<{ status: string; b2_connected: boolean }>(
     API_CLIENT_ROUTES.health.path
   );
+}
+
+// --- Runs (primary entity) ---
+
+/** Substitute a run id into a `{run_id}` path template. */
+function runRoute(path: `${string}{run_id}${string}`, id: string): string {
+  if (id.length === 0) throw new ApiError("Run id is required", 400);
+  return path.replace("{run_id}", encodeURIComponent(id));
+}
+
+function jsonBody(method: "PATCH" | "POST", body: unknown): RequestInit {
+  return {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
+
+export async function getRunOptions() {
+  return apiFetch<RunOptions>(API_CLIENT_ROUTES.runOptions.path);
+}
+
+export async function getRunStats() {
+  return apiFetch<RunStats>(API_CLIENT_ROUTES.runStats.path);
+}
+
+export async function getRuns() {
+  return apiFetch<RunSummary[]>(API_CLIENT_ROUTES.runs.path);
+}
+
+export async function createRun(body: CreateRunRequest) {
+  return apiFetch<RunDetail>(API_CLIENT_ROUTES.createRun.path, jsonBody("POST", body));
+}
+
+export async function getRun(id: string) {
+  return apiFetch<RunDetail>(runRoute(API_CLIENT_ROUTES.runDetail.path, id));
+}
+
+export async function startRun(id: string) {
+  return apiFetch<RunDetail>(runRoute(API_CLIENT_ROUTES.startRun.path, id), {
+    method: "POST",
+  });
+}
+
+export async function updateRun(id: string, body: UpdateRunRequest) {
+  return apiFetch<RunDetail>(
+    runRoute(API_CLIENT_ROUTES.updateRun.path, id),
+    jsonBody("PATCH", body)
+  );
+}
+
+export async function deleteRun(id: string) {
+  return apiFetch<DeleteResponse>(runRoute(API_CLIENT_ROUTES.deleteRun.path, id), {
+    method: "DELETE",
+  });
+}
+
+export async function getArtifactDownloadUrl(id: string, key: string) {
+  const base = runRoute(API_CLIENT_ROUTES.runArtifactDownload.path, id);
+  return apiFetch<{ url: string }>(`${base}?key=${encodeURIComponent(key)}`);
 }
 
 export async function getFiles(prefix = "", limit = 100) {

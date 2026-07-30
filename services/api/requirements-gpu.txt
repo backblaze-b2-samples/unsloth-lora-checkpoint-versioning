@@ -1,0 +1,15 @@
+# Optional GPU extra — install ONLY on a CUDA host to enable the real Unsloth
+# LoRA/QLoRA fine-tune of the 4-bit base models. These packages do NOT install
+# on macOS arm64 (no Apple-MPS path: Triton / bitsandbytes are CUDA-only), so
+# they are deliberately kept out of the base requirements.txt / requirements.lock
+# to keep clean install and `pnpm verify` green on GPU-less hosts.
+#
+# Install (on a CUDA GPU host, after `pnpm run setup`):
+#   services/api/.venv/bin/pip install -r services/api/requirements-gpu.txt
+#
+# repo/trainer.py imports `unsloth` lazily and ONLY inside the CUDA branch, so a
+# host without these packages never attempts to load them.
+unsloth>=2024.9
+bitsandbytes>=0.43.0
+xformers>=0.0.27
+triton>=3.0.0

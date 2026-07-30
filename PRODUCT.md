@@ -6,20 +6,25 @@ product
 
 ## Users
 
-AI coding agents and "vibe coders" (developers who lean on AI to move fast) who clone
-this kit as the foundation for a new full-stack app. Their context: they want to skip
-the boilerplate loop (dashboard, upload, file browser, cloud storage wiring) and go
-straight to building their app's unique features. They read the repo, keep the shared
-scaffolding, and rebrand + rewrite the dashboard for their own use case.
+ML engineers and researchers running LoRA/QLoRA fine-tuning experiments on
+open-weight models (Llama / Qwen / Gemma) on a single GPU — or on CPU for quick,
+keyless iteration. Their context: they run many small experiments and need
+reproducible, rollback-able, shareable run artifacts (datasets, checkpoints,
+adapters, configs, metrics) without standing up a heavyweight MLOps stack. They
+want to see exactly what each run produced and where it lives.
 
 ## Product Purpose
 
-A production-ready full-stack starter kit (Next.js 16 + React 19 + Tailwind v4 +
-shadcn/ui frontend, FastAPI backend) with Backblaze B2 cloud storage integrated out of
-the box. It ships a dashboard, drag-and-drop upload, and a file browser so builders
-start from a working app, not a blank page. Success = a builder can clone it, run it,
-rebrand it via one config file, and trust every screen enough to build on top without
-first fixing it.
+An MLOps experiment-tracking dashboard for local LoRA/QLoRA fine-tuning with
+Unsloth, where every artifact a run produces is versioned on Backblaze B2 under a
+run-keyed prefix. It ships a Runs domain (create, start/re-run, compare, delete),
+live training progress with a loss curve, a scoped artifact explorer with
+presigned downloads, and a dashboard whose headline metric is the
+accumulating-artifact curve — B2 usage growing run over run. Fine-tuning is fully
+local (Unsloth on a CUDA GPU; a real, tiny transformers + PEFT fine-tune on CPU),
+so a run costs $0 and needs only B2 credentials. Success = an engineer can ingest
+a dataset, launch a run, watch checkpoints land on B2, and re-download any
+versioned artifact — reproducibly, without a database.
 
 ## Brand Personality
 

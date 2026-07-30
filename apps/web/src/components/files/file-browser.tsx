@@ -36,7 +36,7 @@ import {
   fileListTruncationNotice,
 } from "@/lib/file-list-limit";
 import { ancestorPaths, takePreviewKeyFromUrl } from "@/lib/preview-deep-link";
-import type { FileMetadata } from "@vibe-coding-starter-kit/shared";
+import type { FileMetadata } from "@unsloth-lora-checkpoint-versioning/shared";
 
 export function FileBrowser() {
   const {

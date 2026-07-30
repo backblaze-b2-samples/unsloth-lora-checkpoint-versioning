@@ -3,6 +3,29 @@
 
 Engineering workflows for this repo.
 
+## Fine-tuning: GPU-optional, CPU-default
+
+The training engine (`services/api/app/repo/trainer.py`) auto-detects the device
+at runtime — first available of **CUDA → CPU**, defaulting to CPU. There is no
+unconditional `.cuda()` and no hard GPU requirement.
+
+- **No GPU (default, incl. Apple Silicon):** nothing extra to install. The base
+  `services/api/requirements.lock` (installed by `pnpm run setup`) carries the
+  CPU-portable stack — `torch`, `transformers`, `peft`, `datasets`, `accelerate`,
+  `safetensors`. A run does a real, tiny PEFT LoRA fine-tune of the CPU-demo
+  model. Unsloth has no Apple-MPS path, so Apple Silicon uses this CPU path.
+- **CUDA GPU (optional):** after `pnpm run setup`, install the GPU extra:
+  ```bash
+  services/api/.venv/bin/pip install -r services/api/requirements-gpu.txt
+  ```
+  This adds `unsloth` / `bitsandbytes` / `xformers` / `triton` (CUDA-only — they
+  do not install on macOS arm64, which is exactly why they are kept out of the
+  base lock so `pnpm verify` stays green on GPU-less hosts). `unsloth` is
+  imported lazily and only on the CUDA branch.
+- The ML libraries are lazily imported inside `repo/trainer.py`, so the app,
+  `pnpm verify`, and `pnpm contract:export` never load torch. Gated base models
+  (Llama 3.x, Gemma) additionally need `HF_TOKEN` set in `.env`.
+
 ## New Feature
 
 - [ ] Read `AGENTS.md` and `ARCHITECTURE.md`
@@ -124,7 +147,7 @@ with a concurrently held `0.0.0.0` bind and would report a free port as busy.
 - Frontend typecheck: `pnpm typecheck`
 - Frontend lint: `pnpm lint`
 - Backend lint: `pnpm lint:api`
-- E2E: `pnpm test:e2e` (run `pnpm --filter @vibe-coding-starter-kit/web exec playwright install chromium` once first)
+- E2E: `pnpm test:e2e` (run `pnpm --filter @unsloth-lora-checkpoint-versioning/web exec playwright install chromium` once first)
 
 ### Pre-commit
 

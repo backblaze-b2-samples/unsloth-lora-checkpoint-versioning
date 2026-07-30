@@ -1,6 +1,84 @@
 {
   "components": {
     "schemas": {
+      "Artifact": {
+        "properties": {
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Url"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_modified": {
+            "format": "date-time",
+            "title": "Last Modified",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "size_human": {
+            "title": "Size Human",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "filename",
+          "kind",
+          "size_bytes",
+          "size_human",
+          "last_modified"
+        ],
+        "title": "Artifact",
+        "type": "object"
+      },
+      "BaseModelOption": {
+        "properties": {
+          "gated": {
+            "default": false,
+            "title": "Gated",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "requires_gpu": {
+            "default": false,
+            "title": "Requires Gpu",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "BaseModelOption",
+        "type": "object"
+      },
       "Body_upload_upload_post": {
         "properties": {
           "file": {
@@ -13,6 +91,60 @@
           "file"
         ],
         "title": "Body_upload_upload_post",
+        "type": "object"
+      },
+      "CreateRunRequest": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/RunConfig"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "config"
+        ],
+        "title": "CreateRunRequest",
+        "type": "object"
+      },
+      "CumulativePoint": {
+        "properties": {
+          "artifacts": {
+            "title": "Artifacts",
+            "type": "integer"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "artifacts",
+          "size_bytes"
+        ],
+        "title": "CumulativePoint",
         "type": "object"
       },
       "DailyUploadCount": {
@@ -31,6 +163,92 @@
           "uploads"
         ],
         "title": "DailyUploadCount",
+        "type": "object"
+      },
+      "DatasetOption": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "size_human": {
+            "title": "Size Human",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "size_bytes",
+          "size_human"
+        ],
+        "title": "DatasetOption",
+        "type": "object"
+      },
+      "DeleteResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deleted",
+          "id"
+        ],
+        "title": "DeleteResponse",
+        "type": "object"
+      },
+      "EpochMetric": {
+        "properties": {
+          "checkpoint_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Key"
+          },
+          "epoch": {
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "loss": {
+            "title": "Loss",
+            "type": "number"
+          }
+        },
+        "required": [
+          "epoch",
+          "loss"
+        ],
+        "title": "EpochMetric",
         "type": "object"
       },
       "FileMetadata": {
@@ -321,6 +539,497 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "RunConfig": {
+        "description": "Immutable training configuration, frozen into config.json on B2.",
+        "properties": {
+          "base_model": {
+            "default": "tiny",
+            "title": "Base Model",
+            "type": "string"
+          },
+          "dataset_id": {
+            "minLength": 1,
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "epochs": {
+            "default": 1,
+            "title": "Epochs",
+            "type": "integer"
+          },
+          "learning_rate": {
+            "default": 0.0002,
+            "title": "Learning Rate",
+            "type": "number"
+          },
+          "lora_rank": {
+            "default": 16,
+            "title": "Lora Rank",
+            "type": "integer"
+          },
+          "method": {
+            "$ref": "#/components/schemas/TrainingMethod",
+            "default": "LoRA"
+          }
+        },
+        "required": [
+          "dataset_id"
+        ],
+        "title": "RunConfig",
+        "type": "object"
+      },
+      "RunDetail": {
+        "properties": {
+          "artifact_count": {
+            "default": 0,
+            "title": "Artifact Count",
+            "type": "integer"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "base_model_resolved": {
+            "default": "",
+            "title": "Base Model Resolved",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "config": {
+            "$ref": "#/components/schemas/RunConfig"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device": {
+            "default": "",
+            "title": "Device",
+            "type": "string"
+          },
+          "epoch_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/EpochMetric"
+            },
+            "title": "Epoch Metrics",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "final_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Loss"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "size_bytes": {
+            "default": 0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "size_human": {
+            "default": "0 B",
+            "title": "Size Human",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "config",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RunDetail",
+        "type": "object"
+      },
+      "RunOptions": {
+        "properties": {
+          "base_models": {
+            "items": {
+              "$ref": "#/components/schemas/BaseModelOption"
+            },
+            "title": "Base Models",
+            "type": "array"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetOption"
+            },
+            "title": "Datasets",
+            "type": "array"
+          },
+          "default_dataset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Dataset Id"
+          },
+          "epochs_max": {
+            "title": "Epochs Max",
+            "type": "integer"
+          },
+          "epochs_min": {
+            "title": "Epochs Min",
+            "type": "integer"
+          },
+          "gpu_available": {
+            "default": false,
+            "title": "Gpu Available",
+            "type": "boolean"
+          },
+          "learning_rates": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Learning Rates",
+            "type": "array"
+          },
+          "lora_ranks": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Lora Ranks",
+            "type": "array"
+          },
+          "methods": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Methods",
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_models",
+          "methods",
+          "learning_rates",
+          "lora_ranks",
+          "epochs_min",
+          "epochs_max",
+          "datasets"
+        ],
+        "title": "RunOptions",
+        "type": "object"
+      },
+      "RunProgress": {
+        "description": "Live progress for a running training job (in-process, merged into the\ndetail while the run's status is `running`).",
+        "properties": {
+          "current_epoch": {
+            "title": "Current Epoch",
+            "type": "integer"
+          },
+          "latest_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Loss"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "total_epochs": {
+            "title": "Total Epochs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "current_epoch",
+          "total_epochs"
+        ],
+        "title": "RunProgress",
+        "type": "object"
+      },
+      "RunStats": {
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "cumulative": {
+            "items": {
+              "$ref": "#/components/schemas/CumulativePoint"
+            },
+            "title": "Cumulative",
+            "type": "array"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "queued": {
+            "title": "Queued",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "integer"
+          },
+          "total_artifacts": {
+            "title": "Total Artifacts",
+            "type": "integer"
+          },
+          "total_runs": {
+            "title": "Total Runs",
+            "type": "integer"
+          },
+          "total_size_bytes": {
+            "title": "Total Size Bytes",
+            "type": "integer"
+          },
+          "total_size_human": {
+            "title": "Total Size Human",
+            "type": "string"
+          }
+        },
+        "required": [
+          "total_runs",
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "total_artifacts",
+          "total_size_bytes",
+          "total_size_human",
+          "cumulative"
+        ],
+        "title": "RunStats",
+        "type": "object"
+      },
+      "RunStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed"
+        ],
+        "title": "RunStatus",
+        "type": "string"
+      },
+      "RunSummary": {
+        "properties": {
+          "artifact_count": {
+            "title": "Artifact Count",
+            "type": "integer"
+          },
+          "base_model": {
+            "title": "Base Model",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_id": {
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "epochs": {
+            "title": "Epochs",
+            "type": "integer"
+          },
+          "final_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Loss"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "method": {
+            "$ref": "#/components/schemas/TrainingMethod"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "size_human": {
+            "title": "Size Human",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "base_model",
+          "dataset_id",
+          "method",
+          "epochs",
+          "artifact_count",
+          "size_bytes",
+          "size_human",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RunSummary",
+        "type": "object"
+      },
+      "TrainingMethod": {
+        "enum": [
+          "LoRA",
+          "QLoRA"
+        ],
+        "title": "TrainingMethod",
+        "type": "string"
+      },
+      "UpdateRunRequest": {
+        "description": "Metadata-only edit. The training config is intentionally immutable once a\nrun has executed \u2014 'change hyperparameters and try again' is served by\nre-running from a new config, not by editing the record.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "title": "UpdateRunRequest",
+        "type": "object"
+      },
       "UploadStats": {
         "properties": {
           "total_downloads": {
@@ -397,8 +1106,8 @@
     }
   },
   "info": {
-    "description": "File upload and management API backed by Backblaze B2",
-    "title": "OSS Starter Kit API",
+    "description": "Version every LoRA/QLoRA fine-tuning artifact on Backblaze B2",
+    "title": "Unsloth LoRA Checkpoint Versioning API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -930,6 +1639,381 @@
         "summary": "Metrics",
         "tags": [
           "metrics"
+        ]
+      }
+    },
+    "/runs": {
+      "get": {
+        "operationId": "list_runs_endpoint_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  },
+                  "title": "Response List Runs Endpoint Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Runs Endpoint",
+        "tags": [
+          "runs"
+        ]
+      },
+      "post": {
+        "operationId": "create_run_endpoint_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Run Endpoint",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/options": {
+      "get": {
+        "operationId": "run_options_endpoint_runs_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Options Endpoint",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/stats": {
+      "get": {
+        "operationId": "run_stats_endpoint_runs_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Stats Endpoint",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}": {
+      "delete": {
+        "operationId": "delete_run_endpoint_runs__run_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Run Endpoint",
+        "tags": [
+          "runs"
+        ]
+      },
+      "get": {
+        "operationId": "get_run_endpoint_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Endpoint",
+        "tags": [
+          "runs"
+        ]
+      },
+      "patch": {
+        "operationId": "update_run_endpoint_runs__run_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Run Endpoint",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/artifacts": {
+      "get": {
+        "operationId": "run_artifacts_endpoint_runs__run_id__artifacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Artifact"
+                  },
+                  "title": "Response Run Artifacts Endpoint Runs  Run Id  Artifacts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Artifacts Endpoint",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/artifacts/download": {
+      "get": {
+        "operationId": "run_artifact_download_endpoint_runs__run_id__artifacts_download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Artifact Download Endpoint",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/start": {
+      "post": {
+        "operationId": "start_run_endpoint_runs__run_id__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Run Endpoint",
+        "tags": [
+          "runs"
         ]
       }
     },

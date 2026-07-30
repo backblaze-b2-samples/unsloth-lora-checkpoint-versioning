@@ -1,8 +1,13 @@
 <!-- last_verified: 2026-07-28 -->
-# Feature: Metadata Extraction
+# Feature: Dataset Introspection & File Metadata
 
 ## Purpose
-Extract rich metadata from uploaded files and surface it both at upload time and for already-stored objects.
+Introspect ingested training datasets (row count + format for JSONL/CSV, from
+`service/run_view.py::_count_rows`, surfaced as `rows` on each `DatasetOption`)
+and, for the whole-bucket Files explorer, extract rich file metadata (checksums,
+size, and image/PDF fields) both at upload time and on demand for already-stored
+objects. Dataset row-count introspection is lightweight (no heavy parse deps);
+the image/PDF extractors are retained only for the general Files browser.
 
 ## Used By
 - API: `POST /upload` (called after B2 upload) — returns the full `FileMetadataDetail` in the upload response

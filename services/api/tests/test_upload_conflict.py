@@ -33,7 +33,7 @@ def test_upload_allows_duplicate_filename(monkeypatch):
         content_length=5,
     )
 
-    assert result.key == "uploads/report.txt"
+    assert result.key == "datasets/report.txt"
 
 
 def test_upload_uses_original_filename(monkeypatch):
@@ -64,4 +64,4 @@ def test_upload_uses_original_filename(monkeypatch):
         content_length=5,
     )
 
-    assert result.key == "uploads/report.txt"
+    assert result.key == "datasets/report.txt"

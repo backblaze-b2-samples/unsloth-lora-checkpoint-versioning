@@ -1,24 +1,63 @@
 <!-- last_verified: 2026-07-29 -->
-# Vibe Coding Starter Kit
+# Unsloth LoRA Checkpoint Versioning
 
-Stop wiring boilerplate and start building. This open-source starter kit gives vibe coders and AI coding agents a production-ready foundation — a full-stack TypeScript + Python template with a pre-built dashboard UI, file upload system, and **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)** cloud storage already integrated. Save thousands of tokens on setup prompts, skip the "build me a dashboard from scratch" loop, and go straight to building your app's unique features.
+An MLOps experiment-tracking dashboard for local **LoRA/QLoRA fine-tuning with
+[Unsloth](https://github.com/unslothai/unsloth)**, where every artifact a run
+produces — the training dataset, per-epoch checkpoints, the final adapter, the
+frozen training config, and the metrics — is **versioned on
+[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-unsloth-lora-checkpoint-versioning)**
+under a run-keyed prefix. It is for ML engineers and researchers running
+fine-tuning experiments on open-weight models (Llama / Qwen / Gemma) on a single
+GPU who need reproducible, rollback-able, shareable run artifacts without
+standing up a heavyweight MLOps stack.
 
-**What you get out of the box:**
-- Full-stack dashboard UI (Next.js 16 + React 19 + Tailwind v4 + shadcn/ui)
-- File upload with drag-and-drop, progress tracking, and metadata extraction
-- File browser with preview, download, and delete
-- FastAPI backend with strict layered architecture and structural tests
-- Agent-optimized docs — your AI coding agent can read the repo and start contributing immediately
+B2 is the remote artifact store for the entire loop — ingest → train →
+checkpoint → archive → serve/query — accessed via the S3-compatible API with a
+custom user agent and standard `B2_*` env vars. The value it shows off: a **real
+accumulating-artifact curve** that grows with every experiment sweep — datasets,
+adapters, checkpoints, and configs piling up run over run.
+
+### The 5-step workflow
+
+1. **Ingest a dataset** — upload a JSONL/CSV training file on the Upload page; it
+   lands on B2 under `datasets/`. (A tiny sample dataset is seeded for you.)
+2. **Configure a run** — pick a base model, dataset, method (LoRA/QLoRA), epochs,
+   learning rate, and LoRA rank on `/runs/new`. The config is frozen to B2 as
+   `runs/<run_id>/config.json`.
+3. **Start training** — one click launches the fine-tune in the background. Each
+   epoch snapshots a checkpoint to `runs/<run_id>/checkpoints/epoch-<n>/`.
+4. **Watch checkpoints land on B2** — live progress and a loss curve update in
+   place; the final adapter + `metrics.json` are archived when training finishes.
+5. **Browse / compare / download** — compare runs in the list, then presigned-
+   download any versioned checkpoint or adapter from the scoped artifact explorer.
+
+### GPU vs CPU — a real fine-tune either way
+
+Device is **auto-detected at runtime** (first available of CUDA → CPU; the CPU
+default never requires a GPU):
+
+- **CUDA GPU present** → a real **Unsloth `FastLanguageModel`** LoRA/QLoRA
+  fine-tune of the selected 4-bit base model (the vendor's own engine).
+- **No GPU** (including Apple Silicon — Unsloth has no Apple-MPS path) → a real
+  but minimal **transformers + PEFT LoRA** fine-tune of a tiny CPU-friendly
+  causal LM. This produces genuine LoRA adapter safetensors, a real loss curve,
+  and real per-epoch checkpoints — not a mock — so the full B2 versioning loop is
+  verifiable on a GPU-less host.
+
+**Cost: $0 per run.** No AI-provider key, no paywall — only B2 credentials. Base
+weights pull from Hugging Face; **gated** models (Llama 3.x, Gemma) need an
+optional `HF_TOKEN` to accept their license and a CUDA GPU. The default CPU-demo
+model is ungated, so the demo needs no token.
 
 ## What it looks like
 
-**Dashboard** — stats, upload activity, and recent uploads at a glance:
+_Screenshots are added by a later step in the sample pipeline._
 
-![Dashboard view showing stat cards, upload activity chart, and recent uploads table](docs/images/b2-starterkit-dashboard1.png)
-
-**File browser** — tree view with preview, download, and delete:
-
-![File browser view showing a tree of files with hover actions](docs/images/b2-starterkit-fileview2.png)
+- **Dashboard** — MLOps metrics: total runs, runs by status, total artifacts, and
+  the cumulative artifact-size curve growing run over run.
+- **Run detail** — config summary, live training progress, loss-curve chart, and
+  a scoped artifact explorer listing everything under `runs/<run_id>/` with
+  presigned downloads.
 
 ## Agent-First Architecture
 
@@ -64,7 +103,7 @@ This approach draws from [OpenAI's experience building with Codex](https://opena
 
 ## Quick Start
 
-You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)**.
+You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-unsloth-lora-checkpoint-versioning)**.
 
 ### Supported local environments
 
@@ -94,12 +133,12 @@ cd my-cool-app
 **Option 2: Clone and reinitialize**
 
 ```bash
-git clone https://github.com/backblaze-b2-samples/vibe-coding-starter-kit.git my-cool-app
+git clone https://github.com/backblaze-b2-samples/unsloth-lora-checkpoint-versioning.git my-cool-app
 cd my-cool-app
 rm -rf .git
 git init
 git add .
-git commit -m "Initial commit from vibe-coding-starter-kit"
+git commit -m "Initial commit from unsloth-lora-checkpoint-versioning"
 ```
 
 Either way you get a clean project with no upstream history — ready to push to your own repo and point your agent at it.
@@ -124,16 +163,21 @@ overwrites an existing `.env`.
 
 **2. Add your B2 credentials**
 
-Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start) and:
+Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-unsloth-lora-checkpoint-versioning) and:
 
-1. **Create a bucket.** B2 will show two values — paste each into `.env`:
+1. **Create a bucket.** B2 will show these values — paste each into `.env`:
    - **Bucket Unique Name** → `B2_BUCKET_NAME`
-   - **Endpoint** → `B2_ENDPOINT`
+   - **Region** (the `<region>` in the S3 endpoint `s3.<region>.backblazeb2.com`, e.g. `us-west-004`) → `B2_REGION`
 2. **Create an application key** with `Read and Write` permission. B2 will show two values — paste each into `.env`:
-   - **keyID** → `B2_KEY_ID`
+   - **keyID** → `B2_APPLICATION_KEY_ID`
    - **applicationKey** → `B2_APPLICATION_KEY` *(only shown once — paste it now)*
 
-> Want a walkthrough? See the docs for [creating a bucket](https://www.backblaze.com/docs/cloud-storage-create-and-manage-buckets) and [creating app keys](https://www.backblaze.com/docs/cloud-storage-create-and-manage-app-keys).
+The five standard keys are `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`,
+`B2_BUCKET_NAME`, `B2_REGION`, and the optional `B2_PUBLIC_URL_BASE` (public
+buckets only). Fine-tuning is fully local — no AI-provider key is needed; set the
+optional `HF_TOKEN` only to pull gated base models (Llama 3.x, Gemma) on a GPU.
+
+> Want a walkthrough? See the docs for [creating a bucket](https://www.backblaze.com/docs/cloud-storage-create-and-manage-buckets?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-unsloth-lora-checkpoint-versioning) and [creating app keys](https://www.backblaze.com/docs/cloud-storage-create-and-manage-app-keys?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-unsloth-lora-checkpoint-versioning).
 
 **3. Run it**
 
@@ -141,27 +185,41 @@ Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 d
 pnpm dev
 ```
 
-That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Upload a file and see it working. Interactive API docs (Swagger UI) are at `localhost:8000/docs`, with ReDoc at `/redoc`.
+That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Open **Runs → New run**, keep the seeded sample dataset and the safe defaults (Tiny CPU-demo model, LoRA, 1 epoch), create the run, then press **Start training** and watch checkpoints land on B2. Interactive API docs (Swagger UI) are at `localhost:8000/docs`, with ReDoc at `/redoc`.
+
+> **GPU is optional.** The CPU path needs nothing extra. To run the real Unsloth
+> fine-tune on a CUDA GPU, install the optional GPU extra after setup:
+> `services/api/.venv/bin/pip install -r services/api/requirements-gpu.txt`.
 
 `pnpm dev` runs the preflight check first — it catches the common setup gotchas (wrong Node/Python version, missing venv, missing or placeholder `.env`, ports already taken) and tells you exactly how to fix each one. Run it standalone any time with `pnpm run doctor`.
 
 ## Building Your App
 
-When you adapt this kit for a new app, keep the shared scaffolding and only swap out what's app-specific:
+This app was scaffolded from a starter kit. The shared B2-backed scaffolding is
+kept; the app-specific Runs domain is layered on top:
 
-- **Keep** the UI kit (`apps/web/src/components/ui/` + design tokens in `globals.css` + `/design`).
-- **Keep** the File Explorer (`/files`) and Upload (`/upload`) pages and their sidebar nav entries — they're the reusable B2-backed surface.
-- **Adapt** the Dashboard (`/`) to your use case — replace the default stats, chart, and recent uploads with metrics that reflect what your app actually does.
-- **Rebrand** by editing a single file: `apps/web/src/lib/app-config.ts` holds the app name and description (`APP_NAME`, `APP_DESCRIPTION`). Changing them there updates the page title, sidebar, and breadcrumb everywhere — no other files to touch.
+- **Runs** (`/runs`, `/runs/new`, `/runs/[id]`) — the primary entity. Create,
+  read, start/re-run (the `run` verb), edit metadata, and delete a fine-tuning
+  experiment. Backend: `services/api/app/{types,repo,service,runtime}/runs*.py`
+  plus the training engine in `repo/trainer.py`.
+- **Upload** (`/upload`) — repurposed as **dataset ingest**: JSONL/CSV files land
+  under the `datasets/` prefix and become selectable when you create a run.
+- **Files** (`/files`) — the kept whole-bucket explorer (browse everything on B2).
+- **Dashboard** (`/`) — repurposed to MLOps metrics + the cumulative artifact
+  curve.
+- **Rebrand** by editing a single file: `apps/web/src/lib/app-config.ts`
+  (`APP_NAME`, `APP_DESCRIPTION`).
 
 Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AGENTS.md#2-building-on-this-starter-kit).
 
 ## Core Features
 
-- [File Upload](docs/features/file-upload.md) — drag-and-drop upload with real-time progress
-- [File Browser](docs/features/file-browser.md) — list, preview, download, delete files
-- [Dashboard](docs/features/dashboard.md) — stats cards, upload chart, recent uploads
-- [Metadata Extraction](docs/features/metadata-extraction.md) — image dimensions, EXIF, PDF info, checksums
+- [Training Runs](docs/features/training-runs.md) — local LoRA/QLoRA fine-tuning with real per-epoch checkpoints (Unsloth on GPU, transformers + PEFT on CPU)
+- [Checkpoint Versioning](docs/features/checkpoint-versioning.md) — every artifact keyed under `runs/<run_id>/` on B2; the accumulating-artifact curve
+- [Dataset Ingest](docs/features/file-upload.md) — upload JSONL/CSV training files to the `datasets/` prefix
+- [File Browser](docs/features/file-browser.md) — list, preview, download, delete anything in the bucket
+- [Dashboard](docs/features/dashboard.md) — run metrics, status breakdown, cumulative artifact storage
+- [Dataset Introspection](docs/features/metadata-extraction.md) — row count, format, size, and checksums for stored objects
 - [Design System](docs/design-system.md) — tokens, primitives, AI elements, the blaze generating loader, and inline `ErrorState` / `EmptyState` patterns. Live preview at `/design`.
 - Inline error handling — fetch failures surface *what's wrong* (API offline, 401, 5xx) and offer a Retry, instead of silently rendering empty state.
 - Single-source config — one `.env` at the repo root powers both API and web app, validated at startup so misconfig fails fast with a readable message.
@@ -178,7 +236,8 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 
 - TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, Recharts
 - TanStack Query — caching, dedup, retry, stale-while-revalidate for every fetch
-- Python 3.11+, FastAPI, boto3, Pydantic v2, Pillow, PyPDF2
+- Python 3.11+, FastAPI, boto3, Pydantic v2
+- Fine-tuning: PyTorch, Hugging Face `transformers` + `peft` (CPU path); Unsloth + bitsandbytes for the CUDA path (optional GPU extra)
 - Backblaze B2 (S3-compatible object storage)
 - pnpm workspaces (monorepo)
 
@@ -204,7 +263,7 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 | `pnpm test:web` | Run frontend unit tests (vitest) |
 | `pnpm test:api` | Run backend tests |
 | `pnpm check:structure` | Verify layering rules |
-| `pnpm test:e2e` | Playwright E2E smoke tests (run `pnpm --filter @vibe-coding-starter-kit/web exec playwright install chromium` once first) |
+| `pnpm test:e2e` | Playwright E2E smoke tests (run `pnpm --filter @unsloth-lora-checkpoint-versioning/web exec playwright install chromium` once first) |
 
 Run `pnpm run setup` once before local development, and rerun it after pulling
 dependency changes. It installs workspace dependencies from `pnpm-lock.yaml`
@@ -234,7 +293,7 @@ hooks.
 |-----|---------|
 | [AGENTS.md](AGENTS.md) | Agent table of contents — start here |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System layout, layering, data flows |
-| [docs/features/](docs/features/) | Feature docs (upload, browser, dashboard, metadata) |
+| [docs/features/](docs/features/) | Feature docs (training runs, checkpoint versioning, dataset ingest, browser, dashboard) |
 | [docs/design-system.md](docs/design-system.md) | Design tokens, primitives, AI elements, loader, error/empty states |
 | [docs/app-workflows.md](docs/app-workflows.md) | User journeys |
 | [docs/dev-workflows.md](docs/dev-workflows.md) | Engineering workflows and testing |

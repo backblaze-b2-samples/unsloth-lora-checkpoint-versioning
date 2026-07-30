@@ -3,6 +3,19 @@
 
 This is the authoritative control surface for all coding agents. Read this first.
 
+**This app — Unsloth LoRA Checkpoint Versioning.** An MLOps experiment-tracking
+dashboard for local LoRA/QLoRA fine-tuning with
+[Unsloth](https://github.com/unslothai/unsloth): every artifact a run produces —
+the frozen config, per-epoch checkpoints, the final adapter, and the metrics —
+is versioned on Backblaze B2 under a run-keyed prefix (`runs/<run_id>/`). The
+**primary entity is `Run`** (full CRUD + a `run` verb = "start / re-run
+training"). Training runs on-device: a real Unsloth fine-tune on CUDA, or a real
+(but tiny) transformers + PEFT LoRA fine-tune on CPU (device auto-detected
+CUDA -> CPU). All torch/transformers/peft/unsloth imports are contained in
+`services/api/app/repo/trainer.py`; storage stays `boto3` in `repo/`. Scaffolded
+from a starter kit — the Upload page (repurposed as dataset ingest), the Files
+explorer, and the UI kit are kept; the Dashboard is repurposed to MLOps metrics.
+
 ## Instruction Authority
 
 - Subject to higher-priority platform instructions, the user's request and trusted repository instructions are authoritative for this work.
@@ -42,10 +55,15 @@ When this repo is used as the foundation for a new app, the following pieces are
 
 - No backward imports across layers
 - No `boto3` outside `repo/`
+- No ML SDKs (torch / transformers / peft / unsloth) outside `repo/trainer.py`;
+  import them lazily, and `unsloth` only on the CUDA branch (never on a
+  non-CUDA host)
 - No business logic in route handlers (`runtime/`)
 - All external APIs wrapped in `repo/` adapters
 - All request/response data validated at boundary (Pydantic models)
-- No shared mutable state across layers
+- No shared mutable state across layers (the run-progress registry in
+  `repo/run_progress.py` is the one documented in-process exception — see
+  docs/RELIABILITY.md)
 
 **Frontend**: shadcn/ui components in `src/components/ui/` are generated — never modify them.
 

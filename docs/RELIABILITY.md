@@ -35,6 +35,27 @@ The download counter and the `/metrics` counters are **in-process, per replica**
 - **Download counter** (`app/repo/counter.py`) persists to a JSON file at `DOWNLOAD_COUNT_FILE` (default `.data/download_count.json`, resolved from the repo root — deliberately outside `services/api/`, which `uvicorn --reload` watches, so a download never writes into the dev reloader's watch tree). On an ephemeral filesystem (Railway without a mounted volume) it **resets to 0 on every redeploy**. With multiple replicas each keeps its own file/count. For durable, shared counts: mount a persistent volume, or swap the adapter for Redis/DB.
 - **`/metrics` counters** live in process memory and reset on restart. Behind a load balancer, each replica reports only its own slice — scrape with an instance label and aggregate, or push to a shared collector.
 
+## In-process run-progress registry
+
+Training runs execute in a background daemon thread (`service/runs.py`), and the
+sub-epoch liveness they report — current epoch, latest loss, a status message —
+lives in an **in-process, per-replica** registry (`repo/run_progress.py`, a
+`threading.Lock`-guarded map). `GET /runs/{id}` merges it in while a run is
+`running`. Consequences to plan for before scaling:
+
+- The **durable source of truth is the B2 manifest** (`runs/<id>/run.json`),
+  which is persisted at every epoch and at every status transition. The registry
+  is only a best-effort overlay for smooth live progress.
+- It does **not survive a restart**: a run whose thread was killed mid-training
+  (process restart, redeploy) keeps status `running` in its last-persisted
+  manifest but reports no live progress. Re-running it (`POST /runs/{id}/start`)
+  restarts training cleanly.
+- It is **not shared across replicas**: with more than one API replica, only the
+  replica that owns a run's thread reports its live progress, and a run started
+  on replica A is not trained by replica B. This sample is single-replica by
+  design (same class as the rate limiter and the listing cache). A multi-replica
+  deployment needs an external job queue/worker instead of the in-process thread.
+
 ## Rate Limiting
 
 - Per-IP fixed-window limiter (`app/runtime/ratelimit.py`); `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_WRITE_PER_MINUTE` are the budgets. Rejected requests get `429` with a `Retry-After` header.

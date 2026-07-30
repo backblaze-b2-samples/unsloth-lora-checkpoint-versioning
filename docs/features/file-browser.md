@@ -2,7 +2,11 @@
 # Feature: File Browser
 
 ## Purpose
-List, preview, download, and delete files stored in Backblaze B2.
+List, preview, download, and delete files stored in Backblaze B2. This is the
+**whole-bucket** explorer (everything on B2). The sample-specific **scoped**
+explorer — which lists only one run's artifacts under `runs/<id>/` with presigned
+downloads — lives on the run detail page; see
+[Checkpoint Versioning](checkpoint-versioning.md).
 
 ## Used By
 - UI: `/files` page, file browser component

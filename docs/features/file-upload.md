@@ -1,12 +1,17 @@
 <!-- last_verified: 2026-07-28 -->
-# Feature: File Upload
+# Feature: Dataset Ingest
 
 ## Purpose
-Upload files from the browser to Backblaze B2 with real-time progress tracking.
+Upload a JSONL/CSV training dataset from the browser to Backblaze B2 (under the
+`datasets/` prefix) with real-time progress tracking, so it becomes selectable
+when creating a run. This is the starter kit's Upload feature, repurposed for
+dataset ingest — the queue/progress mechanics are unchanged; only the accepted
+types, destination prefix, and copy differ.
 
 ## Used By
-- UI: `/upload` page, upload form component
+- UI: `/upload` page (Ingest a dataset), upload form component
 - API: `POST /upload`
+- Downstream: the run-create form's dataset selector lists the `datasets/` prefix
 
 ## Core Functions
 - `apps/web/src/lib/upload-queue-context.tsx` — `UploadQueueProvider` / `useUploadQueue()`: the app-wide upload queue. Mounted in the root layout, so an upload survives navigation away from `/upload`
@@ -32,20 +37,25 @@ Upload files from the browser to Backblaze B2 with real-time progress tracking.
 
 ## Outputs
 - `FileUploadResponse`: key, filename, size, content_type, uploaded_at, url, metadata
-- Side effects: file stored in B2 bucket under `uploads/{sanitized_filename}`
+- Side effects: file stored in B2 bucket under `datasets/{sanitized_filename}`
 
 ## Flow
 - User drops or selects files in dropzone
+- User drops or selects a JSONL/CSV/JSON training file (the ingest picker is
+  scoped to those formats; the backend remains a general B2 writer for the
+  whole-bucket Files explorer)
 - Client validates file size (max 100MB) and type — rejected files remain in the queue with a clear reason and show toast feedback
 - XHR sends multipart POST to `/upload` with progress events
+- API coerces a missing/`octet-stream` content type to `application/jsonl` for
+  `.jsonl`/`.ndjson` files (browsers often send no MIME type for them)
 - API checks `Content-Length` header early to reject oversized requests before reading body
-- API validates content type against allowlist (SVG excluded — stored-XSS risk)
+- API validates content type against the allowlist (SVG excluded — stored-XSS risk)
 - API sanitizes filename (strips path components, null bytes, unsafe chars, limits to 200 chars)
 - API validates file extension matches declared MIME type
 - API reads file in 1MB chunks with streaming size enforcement (max 100MB)
 - API rejects empty files
 - API verifies the leading bytes match the declared type for binary formats (magic-byte signature check)
-- API uses key: `uploads/{sanitized_filename}`
+- API uses key: `datasets/{sanitized_filename}`
 - API calls `put_object` to B2
 - API extracts file metadata (checksums, image dimensions, PDF info)
 - API returns `FileUploadResponse`

@@ -1,18 +1,17 @@
 "use client";
 
-import { FileIcon, HardDrive, Upload, Download } from "lucide-react";
+import { Boxes, CheckCircle2, FlaskConical, HardDrive } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingNotice } from "@/components/common/loading-notice";
-import { useFileStats } from "@/lib/queries";
+import { useRunStats } from "@/lib/queries";
 
 export function StatsCards() {
-  const { data: stats, isLoading, error, refetch } = useFileStats();
+  const { data: stats, isLoading, error, refetch } = useRunStats();
 
-  // Surface fetch failures inline rather than rendering "0 files / 0 B" —
-  // that lies to the user about the bucket state when really the API is
-  // just unreachable.
+  // Surface fetch failures inline rather than rendering zeros — that would lie
+  // about the bucket state when really the API is just unreachable.
   if (error) {
     return (
       <Card>
@@ -24,26 +23,20 @@ export function StatsCards() {
   }
 
   const cards = [
-    { title: "Total Files", value: stats?.total_files ?? 0, icon: FileIcon },
-    { title: "Storage Used", value: stats?.total_size_human ?? "0 B", icon: HardDrive },
-    { title: "Uploads Today", value: stats?.uploads_today ?? 0, icon: Upload },
-    { title: "Total Downloads", value: stats?.total_downloads ?? 0, icon: Download },
+    { title: "Runs", value: stats?.total_runs ?? 0, icon: FlaskConical },
+    { title: "Completed", value: stats?.completed ?? 0, icon: CheckCircle2 },
+    { title: "Artifacts on B2", value: stats?.total_artifacts ?? 0, icon: Boxes },
+    { title: "Storage on B2", value: stats?.total_size_human ?? "0 B", icon: HardDrive },
   ];
 
   return (
     <>
-      {/* Stats need a full bucket listing, which measured ~8s on a 16k-object
-          bucket. Four blank skeleton cards said nothing about that; this states
-          it in words and escalates if the wait keeps going. */}
-      {isLoading && (
-        <LoadingNotice className="mb-3" subject="bucket stats" />
-      )}
+      {/* Stats read scoped listings of the app's own runs/ prefix, so this is
+          normally fast; the notice covers a cold bucket. */}
+      {isLoading && <LoadingNotice className="mb-3" subject="run stats" />}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card, i) => (
-          <Card
-            key={card.title}
-            className={`card-hover animate-fade-in-up stagger-${i + 1}`}
-          >
+          <Card key={card.title} className={`card-hover animate-fade-in-up stagger-${i + 1}`}>
             <CardHeader className="flex flex-row items-center justify-between pt-4 pb-2 px-4 space-y-0">
               <CardTitle className="text-xs font-semibold text-muted-foreground">
                 {card.title}

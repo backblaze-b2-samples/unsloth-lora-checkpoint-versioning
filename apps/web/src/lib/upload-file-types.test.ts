@@ -3,27 +3,38 @@ import { describe, expect, it } from "vitest";
 import { ACCEPTED_FILE_TYPES } from "./upload-file-types";
 
 // Mirror of the backend `ALLOWED_TYPES` set in
-// services/api/app/service/upload.py. The dropzone allow-list must stay in
-// lockstep with what the server accepts; this fails loudly if either drifts.
-const BACKEND_ALLOWED_TYPES = [
+// services/api/app/service/upload.py. The dataset-ingest dropzone is scoped to
+// the training-file formats (a subset), while the backend stays a general B2
+// writer for the whole-bucket Files explorer. Every type the picker offers must
+// still be one the server accepts — this fails loudly if the picker drifts
+// outside the backend allow-list.
+const BACKEND_ALLOWED_TYPES = new Set([
+  "application/jsonl",
+  "application/x-ndjson",
+  "text/plain",
+  "text/csv",
+  "application/json",
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
   "application/pdf",
-  "text/plain",
-  "text/csv",
-  "application/json",
   "application/zip",
   "video/mp4",
   "audio/mpeg",
   "audio/wav",
-];
+]);
 
 describe("ACCEPTED_FILE_TYPES", () => {
-  it("covers exactly the backend allow-list", () => {
+  it("offers only types the backend accepts (a scoped subset)", () => {
+    for (const type of Object.keys(ACCEPTED_FILE_TYPES)) {
+      expect(BACKEND_ALLOWED_TYPES.has(type)).toBe(true);
+    }
+  });
+
+  it("scopes the ingest picker to the training-file formats", () => {
     expect(new Set(Object.keys(ACCEPTED_FILE_TYPES))).toEqual(
-      new Set(BACKEND_ALLOWED_TYPES)
+      new Set(["application/jsonl", "application/x-ndjson", "application/json", "text/csv"])
     );
   });
 

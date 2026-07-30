@@ -9,15 +9,20 @@ from app.types.formatting import humanize_bytes
 # Note: image/svg+xml is deliberately excluded. SVGs can embed <script>, so a
 # file stored and later served from a public bucket URL would execute in the
 # browser (stored XSS). Re-add only with server-side SVG sanitization.
+# Dataset ingest accepts the training-file types (JSONL / CSV / JSON). The
+# other types are retained so the kept whole-bucket Files explorer remains a
+# general B2 writer, but the ingest UI steers users to JSONL/CSV.
 ALLOWED_TYPES = {
+    "application/jsonl",
+    "application/x-ndjson",
+    "text/plain",
+    "text/csv",
+    "application/json",
     "image/jpeg",
     "image/png",
     "image/gif",
     "image/webp",
     "application/pdf",
-    "text/plain",
-    "text/csv",
-    "application/json",
     "application/zip",
     "video/mp4",
     "audio/mpeg",
@@ -25,14 +30,16 @@ ALLOWED_TYPES = {
 }
 
 MIME_EXTENSION_MAP: dict[str, set[str]] = {
+    "application/jsonl": {"jsonl"},
+    "application/x-ndjson": {"jsonl", "ndjson"},
     "image/jpeg": {"jpg", "jpeg", "jfif"},
     "image/png": {"png"},
     "image/gif": {"gif"},
     "image/webp": {"webp"},
     "application/pdf": {"pdf"},
-    "text/plain": {"txt", "text", "log", "md"},
+    "text/plain": {"txt", "text", "log", "md", "jsonl", "ndjson"},
     "text/csv": {"csv"},
-    "application/json": {"json"},
+    "application/json": {"json", "jsonl"},
     "application/zip": {"zip"},
     "video/mp4": {"mp4"},
     "audio/mpeg": {"mp3", "mpeg"},
@@ -127,6 +134,15 @@ def process_upload(
     if not filename:
         raise UploadError("No filename provided")
 
+    # Browsers often send no MIME type for a .jsonl file, which arrives as an
+    # empty or octet-stream content type. Coerce it so JSONL datasets ingest
+    # cleanly instead of being rejected as an unknown type.
+    lower = filename.lower()
+    if content_type in ("", "application/octet-stream") and (
+        lower.endswith(".jsonl") or lower.endswith(".ndjson")
+    ):
+        content_type = "application/jsonl"
+
     if content_length and content_length > settings.max_file_size:
         raise UploadError(
             f"File too large. Max size: {humanize_bytes(settings.max_file_size)}",
@@ -160,9 +176,11 @@ def process_upload(
             status_code=413,
         )
 
-    # B2 buckets are always versioned — uploading the same key creates a new
-    # version automatically.  No duplicate rejection needed.
-    key = f"uploads/{safe_name}"
+    # Dataset ingest: training files land under the `datasets/` prefix so the
+    # run-create form's dataset selector (which lists `datasets/`) can pick them
+    # up. B2 buckets are always versioned — re-uploading the same key creates a
+    # new version automatically, so no duplicate rejection is needed.
+    key = f"datasets/{safe_name}"
     result = upload_file(file_data, key, content_type)
     metadata = extract_metadata(
         file_data, safe_name, content_type, result.uploaded_at

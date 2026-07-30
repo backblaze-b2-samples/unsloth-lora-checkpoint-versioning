@@ -49,3 +49,17 @@ uvicorn==0.51.0
 uvloop==0.22.1
 watchfiles==1.2.0
 websockets==16.1.1
+
+# Local LoRA/QLoRA fine-tuning (CPU-portable path). These direct pins are the
+# ML libraries repo/trainer.py lazily imports; their transitive dependencies
+# (huggingface-hub, tokenizers, filelock, fsspec, sympy, networkx, tqdm, regex,
+# …) are resolved by pip at install time. On Linux, PyPI's default torch wheel
+# is the CUDA build (large) but runs on CPU when no GPU is present; macOS arm64
+# gets the CPU/MPS wheel. The GPU-only stack stays in requirements-gpu.txt.
+accelerate==1.0.1
+datasets==3.0.1
+numpy==1.26.4
+peft==0.13.2
+safetensors==0.4.5
+torch==2.4.1
+transformers==4.44.2

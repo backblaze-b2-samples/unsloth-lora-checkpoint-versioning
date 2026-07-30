@@ -8,19 +8,31 @@ import {
 } from "@tanstack/react-query";
 import {
   ApiError,
+  createRun,
   deleteFile,
+  deleteRun,
   getDownloadUrl,
   getFileDetail,
   getFiles,
   getFileStats,
   getHealth,
   getPreviewUrl,
+  getRun,
+  getRunOptions,
+  getRuns,
+  getRunStats,
   getUploadActivity,
+  startRun,
+  updateRun,
 } from "@/lib/api-client";
 import type {
+  CreateRunRequest,
   FileMetadata,
   FileMetadataDetail,
-} from "@vibe-coding-starter-kit/shared";
+  RunDetail,
+  RunSummary,
+  UpdateRunRequest,
+} from "@unsloth-lora-checkpoint-versioning/shared";
 
 // Single source of truth for query keys. Keep these tightly scoped so that
 // invalidating "files" doesn't blow away unrelated caches, and so an IDE
@@ -35,6 +47,10 @@ export const qk = {
   preview: (key: string) => [...qk.all, "preview", key] as const,
   detail: (key: string) => [...qk.all, "detail", key] as const,
   health: () => [...qk.all, "health"] as const,
+  runs: () => [...qk.all, "runs"] as const,
+  run: (id: string) => [...qk.all, "run", id] as const,
+  runStats: () => [...qk.all, "runStats"] as const,
+  runOptions: () => [...qk.all, "runOptions"] as const,
 };
 
 export type Health = Awaited<ReturnType<typeof getHealth>>;
@@ -167,5 +183,91 @@ export function useDeleteFile() {
       dropDeletedFileFromCache(qc, fileKey);
       qc.invalidateQueries({ queryKey: qk.all });
     },
+  });
+}
+
+// --- Runs (the primary entity) ---
+
+const ACTIVE_STATUSES = new Set(["queued", "running"]);
+
+// Finite selector options (base models, learning rates, ranks) + the ingested
+// datasets list. Datasets change on upload, so keep this fresh but cheap.
+export function useRunOptions() {
+  return useQuery({
+    queryKey: qk.runOptions(),
+    queryFn: getRunOptions,
+    staleTime: 30_000,
+  });
+}
+
+// Poll the list while any run is queued/running so checkpoints and status
+// transitions land in the table without a manual refresh.
+export function useRuns({ enabled = true }: QueryGate = {}) {
+  return useQuery<RunSummary[], ApiError>({
+    queryKey: qk.runs(),
+    queryFn: getRuns,
+    enabled,
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((r) => ACTIVE_STATUSES.has(r.status)) ? 4000 : false,
+  });
+}
+
+// Poll a single run every 2s while it is training so the live progress, loss
+// curve, and freshly-uploaded checkpoints update in place.
+export function useRun(id: string | undefined, { enabled = true }: QueryGate = {}) {
+  return useQuery<RunDetail, ApiError>({
+    queryKey: qk.run(id ?? ""),
+    queryFn: () => getRun(id as string),
+    enabled: enabled && !!id,
+    refetchInterval: (query) =>
+      query.state.data && ACTIVE_STATUSES.has(query.state.data.status) ? 2000 : false,
+  });
+}
+
+export function useRunStats({ enabled = true }: QueryGate = {}) {
+  return useQuery({
+    queryKey: qk.runStats(),
+    queryFn: getRunStats,
+    enabled,
+    refetchInterval: 8000,
+  });
+}
+
+/** Invalidate every run-derived cache (list, stats, one detail). */
+function invalidateRuns(qc: QueryClient, id?: string) {
+  qc.invalidateQueries({ queryKey: qk.runs() });
+  qc.invalidateQueries({ queryKey: qk.runStats() });
+  if (id) qc.invalidateQueries({ queryKey: qk.run(id) });
+}
+
+export function useCreateRun() {
+  const qc = useQueryClient();
+  return useMutation<RunDetail, ApiError, CreateRunRequest>({
+    mutationFn: (body) => createRun(body),
+    onSuccess: (data) => invalidateRuns(qc, data.id),
+  });
+}
+
+export function useStartRun(id: string) {
+  const qc = useQueryClient();
+  return useMutation<RunDetail, ApiError, void>({
+    mutationFn: () => startRun(id),
+    onSuccess: () => invalidateRuns(qc, id),
+  });
+}
+
+export function useUpdateRun(id: string) {
+  const qc = useQueryClient();
+  return useMutation<RunDetail, ApiError, UpdateRunRequest>({
+    mutationFn: (body) => updateRun(id, body),
+    onSuccess: () => invalidateRuns(qc, id),
+  });
+}
+
+export function useDeleteRun() {
+  const qc = useQueryClient();
+  return useMutation<{ deleted: boolean; id: string }, ApiError, string>({
+    mutationFn: (id) => deleteRun(id),
+    onSuccess: (_data, id) => invalidateRuns(qc, id),
   });
 }

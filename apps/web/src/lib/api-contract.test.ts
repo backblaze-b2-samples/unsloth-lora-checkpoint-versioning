@@ -50,8 +50,14 @@ const OPENAPI_METHODS = new Set<RouteMethod>([
 ]);
 
 // Prometheus metrics are intentionally scraped server-side, not called by the
-// app shell. Add future backend-only operations here deliberately.
-const SERVER_ONLY_OPERATIONS = new Set(["get /metrics"]);
+// app shell. The scoped run-artifact listing is also backend-only — the run
+// detail response already carries the artifact list with presigned links, so
+// the client never calls the standalone listing route. Add future backend-only
+// operations here deliberately.
+const SERVER_ONLY_OPERATIONS = new Set([
+  "get /metrics",
+  "get /runs/{run_id}/artifacts",
+]);
 
 function operationKey(method: string, path: string) {
   return `${method} ${path}`;

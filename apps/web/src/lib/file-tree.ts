@@ -1,4 +1,4 @@
-import type { FileMetadata } from "@vibe-coding-starter-kit/shared";
+import type { FileMetadata } from "@unsloth-lora-checkpoint-versioning/shared";
 
 export interface TreeFolder {
   type: "folder";
