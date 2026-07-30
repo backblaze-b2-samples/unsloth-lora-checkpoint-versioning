@@ -51,13 +51,21 @@ model is ungated, so the demo needs no token.
 
 ## What it looks like
 
-_Screenshots are added by a later step in the sample pipeline._
+**Dashboard** — MLOps metrics (total runs, completed, artifacts on B2, storage) alongside the cumulative artifact-storage curve that grows run over run.
 
-- **Dashboard** — MLOps metrics: total runs, runs by status, total artifacts, and
-  the cumulative artifact-size curve growing run over run.
-- **Run detail** — config summary, live training progress, loss-curve chart, and
-  a scoped artifact explorer listing everything under `runs/<run_id>/` with
-  presigned downloads.
+![Dashboard with run metrics and the cumulative B2 artifact-storage curve](docs/images/dashboard.png)
+
+**Runs** — every LoRA/QLoRA fine-tuning experiment in one table: status, base model, method, epochs, final loss, artifact count, and size on B2.
+
+![Runs list comparing every fine-tuning experiment](docs/images/runs.png)
+
+**New run** — configure a fine-tune (base model, dataset, LoRA/QLoRA method, epochs, learning rate, LoRA rank); the config is frozen to B2 as `runs/<run_id>/config.json`.
+
+![New run form for configuring a LoRA or QLoRA fine-tune](docs/images/run-new.png)
+
+**Run detail** — the frozen config, the per-epoch loss curve, and a scoped artifact explorer listing everything under `runs/<run_id>/` on B2 with presigned downloads.
+
+![Run detail with the per-epoch loss curve and the versioned B2 artifact explorer](docs/images/run-detail.png)
 
 ## Agent-First Architecture
 
