@@ -34,8 +34,9 @@ version on Backblaze B2, including the cumulative artifact-storage curve.
 ## Flow
 - Page loads → stats cards read `GET /runs/stats` (aggregated from each run's
   manifest plus a scoped `runs/` listing).
-- The growth chart plots `RunStats.cumulative` — per-day cumulative artifact
-  bytes, which only grows as runs accumulate on B2.
+- The growth chart plots `RunStats.cumulative` — one point per run (ordered by
+  completion time) of cumulative artifact bytes, which only grows as runs
+  accumulate on B2.
 - The recent-runs table reads `GET /runs` and links each row to its detail.
 - All aggregations flow through the `runtime -> service -> repo` layering and are
   exposed via TanStack Query hooks (no bare `useEffect + fetch`). Both queries

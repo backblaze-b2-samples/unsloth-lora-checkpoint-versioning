@@ -31,6 +31,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ErrorState } from "@/components/ui/error-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCreateRun, useRunOptions } from "@/lib/queries";
 import type { TrainingMethod } from "@unsloth-lora-checkpoint-versioning/shared";
 
@@ -87,6 +88,13 @@ export function RunCreateForm() {
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
 
+  // The base-model and dataset option lists are server-sourced, so they are
+  // empty until `options` resolves. Radix <SelectValue> can only mirror a value
+  // whose <SelectItem> is already mounted, so we must not render these two
+  // Selects with an empty list — the already-set default would paint blank and
+  // never backfill. (learning_rate/lora_rank have non-empty local fallbacks, so
+  // their default item exists on first paint and they render fine.)
+  const optionsReady = !!options;
   const baseModels = options?.base_models ?? [];
   const datasets = options?.datasets ?? [];
   const learningRates = options?.learning_rates ?? [0.0001, 0.0002, 0.0005];
@@ -182,27 +190,34 @@ export function RunCreateForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Base model</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {baseModels.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                          {m.gated ? " · gated" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {optionsReady ? (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {baseModels.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
+                            {m.requires_gpu ? " · needs GPU" : ""}
+                            {m.gated ? " · gated" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Skeleton className="h-9 w-full rounded-md" />
+                  )}
                   <FormDescription>
                     <strong>Tiny (CPU demo)</strong> is the safe default — it
-                    needs no GPU and no token. Gated models (Llama 3.x, Gemma)
-                    require an <code>HF_TOKEN</code> and a CUDA GPU;{" "}
+                    needs no GPU and no token. Models marked{" "}
+                    <em>· needs GPU</em> are Unsloth 4-bit builds that require a
+                    CUDA GPU; the <em>· gated</em> ones (Llama 3.x, Gemma) also
+                    need an <code>HF_TOKEN</code> to accept their license.{" "}
                     {options && !options.gpu_available
-                      ? "no GPU was detected on this host, so any GPU-only model falls back to the CPU-demo model."
+                      ? "No GPU was detected on this host, so any GPU-only model falls back to the CPU-demo model."
                       : "Unsloth runs them in 4-bit on the GPU."}
                   </FormDescription>
                 </FormItem>
@@ -215,21 +230,25 @@ export function RunCreateForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Dataset</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange} disabled={noDatasets}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an ingested dataset" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {datasets.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.filename}
-                          {d.rows !== null ? ` · ${d.rows} rows` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {optionsReady && (noDatasets || field.value) ? (
+                    <Select value={field.value} onValueChange={field.onChange} disabled={noDatasets}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an ingested dataset" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {datasets.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.filename}
+                            {d.rows !== null ? ` · ${d.rows} rows` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Skeleton className="h-9 w-full rounded-md" />
+                  )}
                   <FormDescription>
                     {noDatasets ? (
                       <>

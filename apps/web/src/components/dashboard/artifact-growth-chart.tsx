@@ -40,8 +40,12 @@ function humanizeBytes(n: number): string {
 
 /**
  * The headline B2 metric: total artifact bytes accumulating run over run. Each
- * point is the cumulative size of every run's versioned artifacts up to that
- * day, so the curve only ever grows as experiments pile up on Backblaze B2.
+ * point is one run's bytes added to the running total (ordered by when the run
+ * completed), so a same-session sweep renders an ascending curve instead of
+ * collapsing to a single per-day dot. `p.date` is the run's full timestamp, so
+ * `new Date(...).toLocaleDateString()` yields the run's real local date (no
+ * off-by-one from a date-only UTC string). The curve only ever grows as
+ * experiments pile up on Backblaze B2.
  */
 export function ArtifactGrowthChart() {
   const { data: stats, isLoading, error, refetch } = useRunStats();

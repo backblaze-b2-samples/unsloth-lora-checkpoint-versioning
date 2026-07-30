@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Play, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, Cpu, Download, Play, RotateCcw, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,16 @@ export function RunDetail({ runId }: { runId: string }) {
   const progressPct = data.progress
     ? Math.min(100, Math.round((data.progress.current_epoch / Math.max(1, data.progress.total_epochs)) * 100))
     : 0;
+  // A GPU-only model was requested but the run trained the tiny CPU-demo model
+  // (no CUDA on this host). `base_model_resolved`/`device` come straight from
+  // the manifest; disclose it so the run isn't read as a real fine-tune of the
+  // requested model. `base_model` === "tiny" is the only non-GPU option, so a
+  // non-tiny request that ran on CPU is always the fallback.
+  const ranCpuFallback =
+    data.device === "cpu" &&
+    data.config.base_model !== "tiny" &&
+    !!data.base_model_resolved &&
+    data.base_model_resolved !== data.config.base_model;
 
   return (
     <div className="space-y-6">
@@ -127,6 +137,25 @@ export function RunDetail({ runId }: { runId: string }) {
           <Stat label="Device" value={data.device || "—"} />
         </CardContent>
       </Card>
+
+      {ranCpuFallback && (
+        <Card className="border-border bg-muted/40">
+          <CardContent className="flex items-start gap-3 p-4 text-sm">
+            <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <div className="font-medium">Ran on CPU-demo fallback (tiny model)</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                No CUDA GPU was available, so{" "}
+                <code className="font-mono">{data.config.base_model}</code> was not
+                loaded. This run trained the portable CPU-demo model{" "}
+                (<code className="break-all font-mono">{data.base_model_resolved}</code>)
+                instead — its loss and adapter reflect that tiny model, not a real
+                fine-tune of the requested model.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {data.status === "running" && data.progress && (
         <Card>

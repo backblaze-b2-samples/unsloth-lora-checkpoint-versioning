@@ -76,3 +76,15 @@ Low-severity polish, left for a follow-up; none blocks the core flow.
 | Custom `FileNotFoundError` shadowed the built-in | Renamed to `FileNotFoundServiceError` |
 | Dropzone accepted any file type client-side | `accept` allow-list mirroring backend `ALLOWED_TYPES` (tested for drift) |
 | No test harness for feature specs | pytest suite across upload, files, activity, errors, validation, rate limit, pagination |
+
+## 2026-07-30 — verify
+
+Nitpicks/backlog surfaced by the sample-3-verify UX funnel (core LoRA→checkpoint→B2 flow verified PASS; these are non-blocking polish items):
+
+- `/runs` list — no interactive compare/multi-select affordance; run comparison is via the columnar table only. An explicit multi-select run-diff would better satisfy the README's "compare runs in the list" phrasing (shot .local/verify/C2/10-runs-list.png).
+- `/runs` list — the Base model column shows the *requested* GPU-only model (e.g. `unsloth/Llama-3.2-1B-...`) with no CPU-demo-fallback hint; the honest "Ran on CPU-demo fallback" disclosure exists only on the run-detail page (shot .local/verify/C2/10-runs-list.png).
+- Dashboard "Artifact Storage on B2" — x-axis renders identical same-day labels ("Jul 30" xN) because the curve is one point per run and all demo runs are same-day; correct data, visually redundant (differentiates only across multiple days) (shot .local/verify/C2/11-dashboard-after.png).
+- Run detail / runs list show the raw base_model value ("tiny") while the create form shows the friendly label ("Tiny (CPU demo)") — inconsistent labelling for the same field (shot .local/verify/C2/10-runs-list.png).
+- Training progress bar is epoch-granular (moves in discrete per-epoch jumps); within an epoch only the stage text + loss advance. Latent for a long single-epoch GPU run where the bar would sit at 0% until 100% (shot .local/verify/B/13-reload-during-run.png).
+- Backend list latency residual — GET /runs and /runs/stats still do N x GET(run.json) per request (linear in run count), and /runs/options (~2.1s) is dominated by a per-request lazy import torch in trainer.select_device() plus a per-dataset row-count get_object. The verify dedup removed the extra per-run LISTs (1 LIST + N GET + N LIST -> 1 LIST + N GET); eliminating the rest needs denormalizing artifact_count/size_bytes into run.json at write time (or a cached aggregate/index), which touches the write path — deferred as disproportionate for a demo whose slowness only shows with many accumulated runs.
+- scripts/doctor.mjs preflight does not verify the ML training stack (torch/transformers/peft) is importable, so a partial or interrupted pnpm run setup can green-light a venv that fails at "Start training" with No module named 'peft'. Consider an import-smoke check in doctor.

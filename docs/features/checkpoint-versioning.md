@@ -27,7 +27,7 @@ storage footprint accumulates visibly run over run.
 
 ## Outputs
 - `Artifact[]` (key, filename, kind, size, presigned `download_url`)
-- `RunStats.cumulative`: per-day cumulative artifact count + bytes
+- `RunStats.cumulative`: per-run cumulative artifact count + bytes
 - Side effect: presigned GET URLs (attachment disposition, 10-min expiry)
 
 ## Flow
@@ -47,8 +47,9 @@ storage footprint accumulates visibly run over run.
   presigns it — one click fetches any versioned checkpoint or the final adapter.
 - Delete: `delete_run` sweeps only `runs/<id>/` via batched `delete_objects` —
   never bucket-wide.
-- The dashboard sums each run's bytes by creation day into a **cumulative curve**
-  that only grows as experiments pile up — the headline B2 metric.
+- The dashboard adds each run's bytes into a **cumulative curve** (one point per
+  run, ordered by completion) that only grows as experiments pile up — the
+  headline B2 metric.
 
 ## Edge Cases
 - Download key outside the run's prefix or containing `..` → `400`.

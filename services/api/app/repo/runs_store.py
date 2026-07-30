@@ -18,6 +18,8 @@ bucket-level S3 versioning being enabled:
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 from botocore.exceptions import ClientError
 
 from app.config import settings
@@ -120,6 +122,35 @@ def list_run_objects(run_id: str) -> list[dict]:
         )
     out.sort(key=lambda o: o["filename"])
     return out
+
+
+def list_all_run_objects() -> dict[str, list[dict]]:
+    """Every run's objects from a SINGLE `runs/` scan, grouped by run_id.
+
+    The list/stats read models need each run's objects (artifact counts + sizes).
+    Fetching them with `list_run_objects` per run issued one LIST per run on top
+    of the full `runs/` scan already done to enumerate ids — an O(N) redundant
+    re-enumeration whose latency grew with the run count. This scans once and
+    buckets by run_id. Each row matches `list_run_objects`' shape (`filename`
+    relative to the run prefix), so the read models are unchanged.
+    """
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for obj in _list_under(RUNS_PREFIX):
+        rest = obj["Key"][len(RUNS_PREFIX) :]
+        if "/" not in rest:
+            continue
+        run_id, filename = rest.split("/", 1)
+        grouped[run_id].append(
+            {
+                "key": obj["Key"],
+                "filename": filename,
+                "size_bytes": int(obj.get("Size", 0)),
+                "last_modified": obj["LastModified"],
+            }
+        )
+    for objs in grouped.values():
+        objs.sort(key=lambda o: o["filename"])
+    return dict(grouped)
 
 
 def run_size_bytes(run_id: str) -> int:

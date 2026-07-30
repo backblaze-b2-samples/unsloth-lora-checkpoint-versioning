@@ -197,27 +197,32 @@ def build_stats(manifests: list[RunManifest], sizes: dict[str, list[dict]]) -> R
     counts: dict[str, int] = defaultdict(int)
     total_artifacts = 0
     total_size = 0
-    # Accumulate artifacts + bytes per creation day for the growing B2 curve.
-    per_day_artifacts: dict[str, int] = defaultdict(int)
-    per_day_bytes: dict[str, int] = defaultdict(int)
     for m in manifests:
         counts[m.status.value] += 1
         objects = sizes.get(m.id, [])
-        run_bytes = sum(int(o["size_bytes"]) for o in objects)
         total_artifacts += len(objects)
-        total_size += run_bytes
-        day = m.created_at.date().isoformat()
-        per_day_artifacts[day] += len(objects)
-        per_day_bytes[day] += run_bytes
+        total_size += sum(int(o["size_bytes"]) for o in objects)
 
+    # One cumulative point PER RUN, ordered by when the run happened, so a
+    # same-session sweep renders an ascending run-over-run curve instead of
+    # collapsing every same-day run into a single dot. `date` carries the run's
+    # full timestamp (not a date-only string); the client formats it in local
+    # time, so the x-axis label matches the run's real date rather than drifting
+    # a day in a behind-UTC locale.
     cumulative: list[CumulativePoint] = []
     running_artifacts = 0
     running_bytes = 0
-    for day in sorted(per_day_bytes):
-        running_artifacts += per_day_artifacts[day]
-        running_bytes += per_day_bytes[day]
+    for m in sorted(manifests, key=lambda r: r.completed_at or r.created_at):
+        objects = sizes.get(m.id, [])
+        running_artifacts += len(objects)
+        running_bytes += sum(int(o["size_bytes"]) for o in objects)
+        ts = m.completed_at or m.created_at
         cumulative.append(
-            CumulativePoint(date=day, artifacts=running_artifacts, size_bytes=running_bytes)
+            CumulativePoint(
+                date=ts.isoformat(),
+                artifacts=running_artifacts,
+                size_bytes=running_bytes,
+            )
         )
 
     return RunStats(

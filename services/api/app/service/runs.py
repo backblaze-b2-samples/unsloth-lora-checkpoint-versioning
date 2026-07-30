@@ -134,12 +134,15 @@ def create_run(req: CreateRunRequest) -> RunDetail:
 
 
 def list_runs() -> list[RunSummary]:
+    # One `runs/` scan grouped by run_id, instead of a scan to list ids plus a
+    # second LIST per run — the per-request cost no longer grows with run count.
+    grouped = runs_store.list_all_run_objects()
     summaries: list[RunSummary] = []
-    for run_id in runs_store.list_run_ids():
+    for run_id, objects in grouped.items():
         manifest = runs_store.read_manifest(run_id)
         if manifest is None:
             continue
-        summaries.append(build_summary(manifest, runs_store.list_run_objects(run_id)))
+        summaries.append(build_summary(manifest, objects))
     summaries.sort(key=lambda s: s.updated_at, reverse=True)
     return summaries
 
@@ -196,14 +199,17 @@ def get_run_options() -> RunOptions:
 
 
 def get_run_stats() -> RunStats:
+    # Same single-scan grouping as list_runs: avoids the O(N) per-run LIST calls
+    # that made /runs/stats latency scale with the number of accumulated runs.
+    grouped = runs_store.list_all_run_objects()
     manifests: list[RunManifest] = []
     sizes: dict[str, list[dict]] = {}
-    for run_id in runs_store.list_run_ids():
+    for run_id, objects in grouped.items():
         manifest = runs_store.read_manifest(run_id)
         if manifest is None:
             continue
         manifests.append(manifest)
-        sizes[run_id] = runs_store.list_run_objects(run_id)
+        sizes[run_id] = objects
     return build_stats(manifests, sizes)
 
 
